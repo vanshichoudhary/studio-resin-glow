@@ -1,391 +1,459 @@
 
 import { useState } from 'react';
-import { X, CreditCard, MapPin, Package } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { X, MapPin, CreditCard, CheckCircle, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
+const addressSchema = z.object({
+  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  street: z.string().min(5, 'Street address must be at least 5 characters'),
+  city: z.string().min(2, 'City must be at least 2 characters'),
+  state: z.string().min(2, 'State must be at least 2 characters'),
+  zipCode: z.string().min(5, 'ZIP code must be at least 5 characters'),
+  pincode: z.string().min(6, 'Pincode must be 6 digits'),
+  country: z.string().min(2, 'Country must be at least 2 characters'),
+});
+
+const paymentSchema = z.object({
+  cardNumber: z.string().min(16, 'Card number must be 16 digits'),
+  expiryDate: z.string().regex(/^(0[1-9]|1[0-2])\/\d{2}$/, 'Format: MM/YY'),
+  cvv: z.string().min(3, 'CVV must be 3-4 digits'),
+  cardName: z.string().min(2, 'Cardholder name required'),
+});
 
 const CheckoutModal = ({ isOpen, onClose, product }) => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({
-    // Address
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    country: '',
-    // Payment
-    paymentMethod: 'card',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    cardName: ''
+  const [step, setStep] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [orderPlaced, setOrderPlaced] = useState(false);
+
+  const addressForm = useForm({
+    resolver: zodResolver(addressSchema),
+    defaultValues: {
+      fullName: '',
+      phone: '',
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      pincode: '',
+      country: 'India',
+    },
   });
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const paymentForm = useForm({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: {
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
+      cardName: '',
+    },
+  });
+
+  const onAddressSubmit = (data) => {
+    console.log('Address submitted:', data);
+    setStep(2);
   };
 
-  const validateStep = (step) => {
-    if (step === 1) {
-      return formData.name && formData.email && formData.phone && 
-             formData.address && formData.city && formData.state && 
-             formData.zipCode && formData.country;
-    }
-    if (step === 2) {
-      if (formData.paymentMethod === 'card') {
-        return formData.cardNumber && formData.expiryDate && 
-               formData.cvv && formData.cardName;
-      }
-      return true;
-    }
-    return true;
-  };
-
-  const nextStep = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 3));
-    }
-  };
-
-  const prevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
+  const onPaymentSubmit = (data) => {
+    console.log('Payment submitted:', data);
+    setStep(3);
   };
 
   const handlePlaceOrder = () => {
-    console.log('Order placed with data:', formData);
-    // Here you would typically send the order to your backend
-    onClose();
+    setOrderPlaced(true);
+    setTimeout(() => {
+      onClose();
+      setStep(1);
+      setOrderPlaced(false);
+    }, 3000);
   };
 
-  if (!product) return null;
+  const getDeliveryDate = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + Math.floor(Math.random() * 5) + 3); // 3-7 days
+    return date.toLocaleDateString('en-IN', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-luxury">Complete Your Order</DialogTitle>
-        </DialogHeader>
+  if (!isOpen) return null;
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Order Summary - Always visible */}
-          <div className="lg:col-span-1">
-            <Card className="sticky top-0">
-              <CardHeader>
-                <CardTitle className="text-lg">Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <img 
-                      src={product.image} 
-                      alt={product.name}
-                      className="w-16 h-16 object-cover rounded"
-                    />
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-sm">{product.name}</h4>
-                      <p className="text-xs text-muted-foreground">Quantity: 1</p>
-                      <p className="font-bold">${product.price}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="border-t pt-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Subtotal:</span>
-                      <span>${product.price}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Shipping:</span>
-                      <span>$4.99</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Tax:</span>
-                      <span>${(product.price * 0.08).toFixed(2)}</span>
-                    </div>
-                    <div className="border-t pt-2 flex justify-between font-bold">
-                      <span>Total:</span>
-                      <span>${(product.price + 4.99 + (product.price * 0.08)).toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Multi-step Form */}
-          <div className="lg:col-span-2">
-            {/* Step Indicator */}
-            <div className="flex items-center justify-between mb-8">
-              {[1, 2, 3].map((step) => (
-                <div key={step} className="flex items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                    currentStep >= step ? 'bg-luxury-gold text-foreground' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {step === 1 && <MapPin size={20} />}
-                    {step === 2 && <CreditCard size={20} />}
-                    {step === 3 && <Package size={20} />}
-                  </div>
-                  {step < 3 && (
-                    <div className={`flex-1 h-0.5 mx-4 ${
-                      currentStep > step ? 'bg-luxury-gold' : 'bg-muted'
-                    }`} />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Step 1: Address */}
-            {currentStep === 1 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin size={20} />
-                    Shipping Address
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input 
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => handleInputChange('name', e.target.value)}
-                        placeholder="Enter your full name"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input 
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                        placeholder="Enter your email"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input 
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
-                      placeholder="Enter your phone number"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="address">Street Address</Label>
-                    <Input 
-                      id="address"
-                      value={formData.address}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
-                      placeholder="Enter your street address"
-                    />
-                  </div>
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="city">City</Label>
-                      <Input 
-                        id="city"
-                        value={formData.city}
-                        onChange={(e) => handleInputChange('city', e.target.value)}
-                        placeholder="Enter your city"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="state">State</Label>
-                      <Input 
-                        id="state"
-                        value={formData.state}
-                        onChange={(e) => handleInputChange('state', e.target.value)}
-                        placeholder="Enter your state"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="zipCode">ZIP/Postal Code</Label>
-                      <Input 
-                        id="zipCode"
-                        value={formData.zipCode}
-                        onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                        placeholder="Enter ZIP code"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="country">Country</Label>
-                      <Input 
-                        id="country"
-                        value={formData.country}
-                        onChange={(e) => handleInputChange('country', e.target.value)}
-                        placeholder="Enter your country"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 2: Payment */}
-            {currentStep === 2 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard size={20} />
-                    Payment Method
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <RadioGroup 
-                    value={formData.paymentMethod} 
-                    onValueChange={(value) => handleInputChange('paymentMethod', value)}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="card" id="card" />
-                      <Label htmlFor="card">Credit/Debit Card</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="paypal" id="paypal" />
-                      <Label htmlFor="paypal">PayPal</Label>
-                    </div>
-                  </RadioGroup>
-
-                  {formData.paymentMethod === 'card' && (
-                    <div className="space-y-4 pt-4 border-t">
-                      <div>
-                        <Label htmlFor="cardName">Name on Card</Label>
-                        <Input 
-                          id="cardName"
-                          value={formData.cardName}
-                          onChange={(e) => handleInputChange('cardName', e.target.value)}
-                          placeholder="Enter name as on card"
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="cardNumber">Card Number</Label>
-                        <Input 
-                          id="cardNumber"
-                          value={formData.cardNumber}
-                          onChange={(e) => handleInputChange('cardNumber', e.target.value)}
-                          placeholder="1234 5678 9012 3456"
-                        />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="expiryDate">Expiry Date</Label>
-                          <Input 
-                            id="expiryDate"
-                            value={formData.expiryDate}
-                            onChange={(e) => handleInputChange('expiryDate', e.target.value)}
-                            placeholder="MM/YY"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="cvv">CVV</Label>
-                          <Input 
-                            id="cvv"
-                            value={formData.cvv}
-                            onChange={(e) => handleInputChange('cvv', e.target.value)}
-                            placeholder="123"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.paymentMethod === 'paypal' && (
-                    <div className="pt-4 border-t">
-                      <p className="text-sm text-muted-foreground">
-                        You will be redirected to PayPal to complete your payment.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 3: Confirmation */}
-            {currentStep === 3 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package size={20} />
-                    Order Confirmation
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
-                    <h4 className="font-semibold mb-2">Shipping Address</h4>
-                    <div className="text-sm text-muted-foreground">
-                      <p>{formData.name}</p>
-                      <p>{formData.address}</p>
-                      <p>{formData.city}, {formData.state} {formData.zipCode}</p>
-                      <p>{formData.country}</p>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-semibold mb-2">Payment Method</h4>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {formData.paymentMethod === 'card' ? 'Credit/Debit Card' : 'PayPal'}
-                      {formData.paymentMethod === 'card' && formData.cardNumber && 
-                        ` ending in ${formData.cardNumber.slice(-4)}`
-                      }
-                    </p>
-                  </div>
-                  
-                  <div className="bg-luxury-creme p-4 rounded-lg">
-                    <p className="text-sm">
-                      By placing this order, you agree to our Terms of Service and Privacy Policy.
-                      You will receive an order confirmation email shortly.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between mt-6">
-              <Button 
-                variant="outline" 
-                onClick={prevStep}
-                disabled={currentStep === 1}
-              >
-                Previous
-              </Button>
-              
-              {currentStep < 3 ? (
-                <Button 
-                  onClick={nextStep}
-                  disabled={!validateStep(currentStep)}
-                  className="bg-foreground text-background hover:bg-foreground/90"
-                >
-                  Next
+  // Step 1: Full Page Address Collection (Flipkart style)
+  if (step === 1) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background">
+        {/* Header */}
+        <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="sm" onClick={onClose}>
+                  <X size={20} />
                 </Button>
-              ) : (
-                <Button 
-                  onClick={handlePlaceOrder}
-                  className="bg-luxury-gold text-foreground hover:bg-luxury-gold/90"
-                >
-                  Place Order
-                </Button>
-              )}
+                <h1 className="text-2xl font-bold">Checkout</h1>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <div className="w-6 h-6 rounded-full bg-luxury-gold text-foreground flex items-center justify-center text-xs font-bold">1</div>
+                  <span>Address</span>
+                </div>
+                <div className="w-8 h-px bg-muted"></div>
+                <div className="flex items-center gap-1">
+                  <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs">2</div>
+                  <span>Payment</span>
+                </div>
+                <div className="w-8 h-px bg-muted"></div>
+                <div className="flex items-center gap-1">
+                  <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs">3</div>
+                  <span>Confirm</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Content */}
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Address Form */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin size={20} className="text-luxury-gold" />
+                    Delivery Address
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Form {...addressForm}>
+                    <form onSubmit={addressForm.handleSubmit(onAddressSubmit)} className="space-y-6">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <FormField
+                          control={addressForm.control}
+                          name="fullName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Full Name *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter your full name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={addressForm.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="10-digit mobile number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <FormField
+                        control={addressForm.control}
+                        name="street"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Address (House No, Building, Street, Area) *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter your complete address" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <FormField
+                          control={addressForm.control}
+                          name="city"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>City *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter city" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={addressForm.control}
+                          name="state"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>State *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter state" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid md:grid-cols-3 gap-4">
+                        <FormField
+                          control={addressForm.control}
+                          name="pincode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Pincode *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="6-digit pincode" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={addressForm.control}
+                          name="zipCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>ZIP Code *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="ZIP code" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={addressForm.control}
+                          name="country"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Country *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Country" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <Button type="submit" className="w-full bg-luxury-gold hover:bg-luxury-gold/90">
+                        Continue to Payment
+                      </Button>
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Order Summary */}
+            <div>
+              <Card className="sticky top-24">
+                <CardHeader>
+                  <CardTitle>Order Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {product && (
+                    <div className="flex gap-3">
+                      <img 
+                        src="https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=80&h=80&fit=crop" 
+                        alt={product.name}
+                        className="w-16 h-16 object-cover rounded"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm">{product.name}</h4>
+                        <p className="text-lg font-bold">${product.price}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="border-t pt-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal</span>
+                      <span>${product?.price || 45.99}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Shipping</span>
+                      <span className="text-green-600">FREE</span>
+                    </div>
+                    <div className="flex justify-between font-bold border-t pt-2">
+                      <span>Total</span>
+                      <span>${product?.price || 45.99}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Steps 2 & 3: Regular Modal
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            {step === 2 ? 'Payment Method' : 'Order Confirmation'}
+          </DialogTitle>
+        </DialogHeader>
+
+        {step === 2 && (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-semibold">Select Payment Method</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <Card className={`cursor-pointer ${paymentMethod === 'card' ? 'ring-2 ring-luxury-gold' : ''}`}>
+                  <CardContent className="p-4 text-center" onClick={() => setPaymentMethod('card')}>
+                    <CreditCard size={32} className="mx-auto mb-2" />
+                    <p className="font-semibold">Credit/Debit Card</p>
+                  </CardContent>
+                </Card>
+                <Card className={`cursor-pointer ${paymentMethod === 'paypal' ? 'ring-2 ring-luxury-gold' : ''}`}>
+                  <CardContent className="p-4 text-center" onClick={() => setPaymentMethod('paypal')}>
+                    <div className="w-8 h-8 bg-blue-600 rounded mx-auto mb-2 flex items-center justify-center">
+                      <span className="text-white font-bold text-xs">PP</span>
+                    </div>
+                    <p className="font-semibold">PayPal</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {paymentMethod === 'card' && (
+              <Form {...paymentForm}>
+                <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
+                  <FormField
+                    control={paymentForm.control}
+                    name="cardNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Card Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="1234 5678 9012 3456" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={paymentForm.control}
+                      name="expiryDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Expiry Date</FormLabel>
+                          <FormControl>
+                            <Input placeholder="MM/YY" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={paymentForm.control}
+                      name="cvv"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>CVV</FormLabel>
+                          <FormControl>
+                            <Input placeholder="123" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={paymentForm.control}
+                    name="cardName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cardholder Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Name on card" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full">Continue to Confirmation</Button>
+                </form>
+              </Form>
+            )}
+
+            {paymentMethod === 'paypal' && (
+              <div className="text-center py-8">
+                <p className="mb-4">You will be redirected to PayPal to complete your payment.</p>
+                <Button onClick={() => setStep(3)} className="w-full">Continue with PayPal</Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === 3 && !orderPlaced && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <CheckCircle size={48} className="mx-auto text-green-500 mb-4" />
+              <h3 className="text-xl font-bold mb-2">Review Your Order</h3>
+              <p className="text-muted-foreground">Please review your order details before placing</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-muted rounded-lg p-4">
+                <h4 className="font-semibold mb-2">Delivery Information</h4>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Truck size={16} />
+                  <span>Expected delivery: {getDeliveryDate()}</span>
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold mb-3">Order Summary</h4>
+                {product && (
+                  <div className="flex justify-between items-center">
+                    <span>{product.name}</span>
+                    <span className="font-bold">${product.price}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Button onClick={handlePlaceOrder} className="w-full" size="lg">
+              Place Order
+            </Button>
+          </div>
+        )}
+
+        {orderPlaced && (
+          <div className="text-center py-8">
+            <CheckCircle size={64} className="mx-auto text-green-500 mb-4" />
+            <h3 className="text-2xl font-bold mb-2">Order Placed Successfully! 🎉</h3>
+            <p className="text-muted-foreground mb-4">
+              Your order will be delivered by {getDeliveryDate()}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              You will receive a confirmation email shortly.
+            </p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
