@@ -11,7 +11,6 @@ const ProductDetail = ({ product, onClose }) => {
   const [isFavorite, setIsFavorite] = useState(false);
 
   const productImages = [
-    "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=600&h=600&fit=crop",
     "https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=600&h=600&fit=crop",
     "https://images.unsplash.com/photo-1524230572899-a752b3835840?w=600&h=600&fit=crop",
     "https://images.unsplash.com/photo-1482881497185-d4a9ddbe4151?w=600&h=600&fit=crop"
